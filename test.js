@@ -144,7 +144,10 @@ test('groupByName keeps singleton names as single-item groups', t => {
 });
 
 test('createChooserChoices collapses duplicate names and leaves singletons unchanged', t => {
-	const choices = createChooserChoices([chromeOne, chromeTwo, redis], {}, 1, 3);
+	const choices = createChooserChoices([chromeOne, chromeTwo, redis], {}, {
+		memoryThreshold: 1,
+		cpuThreshold: 3,
+	});
 
 	t.is(choices.length, 2);
 	t.is(choices[0].name, 'Google Chrome (2)');
@@ -153,7 +156,11 @@ test('createChooserChoices collapses duplicate names and leaves singletons uncha
 });
 
 test('createChooserChoices can leave matching processes ungrouped', t => {
-	const choices = createChooserChoices([chromeOne, chromeTwo], {}, 1, 3, {group: false});
+	const choices = createChooserChoices([chromeOne, chromeTwo], {}, {
+		memoryThreshold: 1,
+		cpuThreshold: 3,
+		group: false,
+	});
 
 	t.is(choices.length, 2);
 	t.is(choices[0].value, 101);

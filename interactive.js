@@ -144,7 +144,7 @@ const renderIndividualProcessChoice = (process_, flags) => {
 
 const shouldGroupSearchResults = term => !term.startsWith(':');
 
-const createChooserChoices = (processes, flags, memoryThreshold, cpuThreshold, {group = true} = {}) => {
+const createChooserChoices = (processes, flags, {memoryThreshold, cpuThreshold, group = true} = {}) => {
 	if (!group) {
 		return processes.map(process_ => renderProcessForDisplay(process_, flags, memoryThreshold, cpuThreshold));
 	}
@@ -340,7 +340,9 @@ const listProcesses = async (processes, flags) => {
 		pageSize: 10,
 		async source(term = '') {
 			const matchingProcesses = filterAndSortProcesses(processes, term, searcher, flags);
-			return createChooserChoices(matchingProcesses, flags, memoryThreshold, cpuThreshold, {
+			return createChooserChoices(matchingProcesses, flags, {
+				memoryThreshold,
+				cpuThreshold,
 				group: shouldGroupSearchResults(term),
 			});
 		},
@@ -370,4 +372,9 @@ const init = async flags => {
 	listProcesses(processesWithPorts, flags);
 };
 
-export {init, handleFkillError, createChooserChoices, shouldGroupSearchResults};
+export {
+	init,
+	handleFkillError,
+	createChooserChoices,
+	shouldGroupSearchResults,
+};
