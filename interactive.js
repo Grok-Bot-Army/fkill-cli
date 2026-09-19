@@ -10,6 +10,7 @@ import {allPortsWithPid} from 'pid-port';
 import fkill from 'fkill';
 import {processExists} from 'process-exists';
 import FuzzySearch from 'fuzzy-search';
+import groupByName from './group-by-name.js';
 
 const isWindows = process.platform === 'win32';
 const commandLineMargins = 4;
@@ -115,6 +116,46 @@ const renderProcessForDisplay = (process_, flags, memoryThreshold, cpuThreshold)
 		name: `${name} ${chalk.dim(process_.pid)}${spacer}${chalk.dim(ports)}${cpu}${memory}`,
 		value: process_.pid,
 	};
+};
+
+const renderProcessGroupForDisplay = groupedProcesses => {
+	const {name} = groupedProcesses[0];
+	return {
+		name: `${name} (${groupedProcesses.length})`,
+		value: groupedProcesses,
+	};
+};
+
+const renderIndividualProcessChoice = (process_, flags) => {
+	const pid = String(process_.pid);
+
+	if (!flags.verbose || isWindows || !process_.cmd) {
+		return pid;
+	}
+
+	const lineLength = process.stdout.columns || 80;
+	const cmd = cliTruncate(process_.cmd, Math.max(lineLength - pid.length - 1, 1), {
+		position: 'middle',
+		preferTruncationOnSpace: true,
+	});
+
+	return `${pid} ${cmd}`;
+};
+
+const shouldGroupSearchResults = term => !term.startsWith(':');
+
+const createChooserChoices = (processes, flags, {memoryThreshold, cpuThreshold, group = true} = {}) => {
+	if (!group) {
+		return processes.map(process_ => renderProcessForDisplay(process_, flags, memoryThreshold, cpuThreshold));
+	}
+
+	return groupByName(processes).map(groupedProcesses => {
+		if (groupedProcesses.length === 1) {
+			return renderProcessForDisplay(groupedProcesses[0], flags, memoryThreshold, cpuThreshold);
+		}
+
+		return renderProcessGroupForDisplay(groupedProcesses);
+	});
 };
 
 const searchProcessesByPort = (processes, port) => processes.filter(process_ => process_.ports.includes(port));
@@ -251,21 +292,68 @@ const findPortsForProcess = (processId, portToPidMap) => {
 	return ports;
 };
 
+const promptGroupedProcesses = async (processes, flags) => {
+	const {name} = processes[0];
+	const {action} = await inquirer.prompt([{
+		type: 'list',
+		name: 'action',
+		message: `${name} (${processes.length})`,
+		choices: [
+			{
+				name: 'Kill all',
+				value: 'all',
+			},
+			{
+				name: 'Pick individuals',
+				value: 'pick',
+			},
+		],
+	}]);
+
+	if (action === 'all') {
+		await performKillSequence(processes.map(process_ => process_.pid));
+		return;
+	}
+
+	const {pids} = await inquirer.prompt([{
+		type: 'checkbox',
+		name: 'pids',
+		message: 'Select processes to kill:',
+		choices: processes.map(process_ => ({
+			name: renderIndividualProcessChoice(process_, flags),
+			value: process_.pid,
+		})),
+	}]);
+
+	if (pids.length > 0) {
+		await performKillSequence(pids);
+	}
+};
+
 const listProcesses = async (processes, flags) => {
 	const memoryThreshold = flags.verbose ? 0 : 1;
 	const cpuThreshold = flags.verbose ? 0 : 3;
 	const searcher = new FuzzySearch(processes, ['name'], {caseSensitive: false});
 
-	const selectedPid = await search({
+	const selected = await search({
 		message: 'Running processes:',
 		pageSize: 10,
 		async source(term = '') {
 			const matchingProcesses = filterAndSortProcesses(processes, term, searcher, flags);
-			return matchingProcesses.map(process_ => renderProcessForDisplay(process_, flags, memoryThreshold, cpuThreshold));
+			return createChooserChoices(matchingProcesses, flags, {
+				memoryThreshold,
+				cpuThreshold,
+				group: shouldGroupSearchResults(term),
+			});
 		},
 	});
 
-	performKillSequence(selectedPid);
+	if (Array.isArray(selected)) {
+		await promptGroupedProcesses(selected, flags);
+		return;
+	}
+
+	await performKillSequence(selected);
 };
 
 const init = async flags => {
@@ -284,4 +372,9 @@ const init = async flags => {
 	listProcesses(processesWithPorts, flags);
 };
 
-export {init, handleFkillError};
+export {
+	init,
+	handleFkillError,
+	createChooserChoices,
+	shouldGroupSearchResults,
+};
