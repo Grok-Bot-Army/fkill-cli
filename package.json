@@ -23,7 +23,8 @@
 	},
 	"files": [
 		"cli.js",
-		"interactive.js"
+		"interactive.js",
+		"group-by-name.js"
 	],
 	"keywords": [
 		"cli-app",

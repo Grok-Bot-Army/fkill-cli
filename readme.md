@@ -44,6 +44,7 @@ $ fkill --help
 	Run without arguments to use the interactive interface.
 	In interactive mode, 🚦n% indicates high CPU usage and 🐏n% indicates high memory usage.
 	Supports fuzzy search in the interactive mode.
+	Same-name processes are grouped (for example, "Google Chrome (12)"). Select a group to kill all or pick individuals.
 
 	The process name is case-insensitive by default.
 ```
@@ -51,6 +52,8 @@ $ fkill --help
 ## Interactive UI
 
 Run `fkill` without arguments to launch the interactive UI.
+
+Processes with the same name are grouped into one row, for example `Google Chrome (12)`. Selecting a group lets you kill all of them or pick individuals. Port (`:8080`) and PID searches stay ungrouped.
 
 ![](screenshot.svg)
 
